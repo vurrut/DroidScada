@@ -1,0 +1,1 @@
+Implement READY to receive on client and server - 02.12.2011

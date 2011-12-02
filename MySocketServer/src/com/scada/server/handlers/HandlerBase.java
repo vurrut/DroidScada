@@ -1,6 +1,9 @@
 package com.scada.server.handlers;
 
+import java.util.List;
+
 import com.scada.utils.Command;
+import com.scada.utils.Response;
 
 public abstract class HandlerBase {
 	private final String commandType;
@@ -13,5 +16,5 @@ public abstract class HandlerBase {
 		return commandType;
 	}
 	
-	abstract void handleCommand( Command c );
+	abstract List<Response> handleCommand( Command c );
 }

@@ -7,18 +7,39 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.List;
 import java.util.Vector;
 
+import com.scada.server.ClientThread.CommandDispatcher;
+import com.scada.server.ClientThread.ResponseDispatcher;
+import com.scada.server.handlers.CHSysInfo;
 import com.scada.utils.Command;
 import com.scada.utils.ProtocolUtils;
+import com.scada.utils.Response;
 
 // A client for our multithreaded EchoServer. 
 public class EchoClient {
 	private static String hostname;
+	
+	static BufferedReader oIS = null;
+	static BufferedWriter oOS = null;
+	
+	private static boolean receiverThreadRunning = false;
+	private static ResponseReceiver responseReceiver;
+	private static Thread responseReceiverThread;
+	private static boolean clientRunFlag = true;
+	private static ProtocolUtils pu;
 				
 	public static void main(String[] args) {
-		ProtocolUtils pu = new ProtocolUtils();
-		boolean clientRunFlag = true;
+		pu = new ProtocolUtils();
+		
+		responseReceiver = new ResponseReceiver();
+		responseReceiverThread = new Thread(responseReceiver);
+		responseReceiverThread.setName("responseReceiverThread");
+		responseReceiverThread.setDaemon(true);
+		receiverThreadRunning = true;
+		
+		
 		// First parameter has to be machine name
 		if (args.length == 0) {
 			// System.out.println("Usage : EchoClient <serverName>");
@@ -47,8 +68,7 @@ public class EchoClient {
 		if (s == null)
 			System.exit(-1);
 
-		BufferedReader oIS = null;
-		BufferedWriter oOS = null;
+		
 
 		try {
 			// Create the streams to send and receive information
@@ -63,7 +83,7 @@ public class EchoClient {
 			{
 				Vector<Command> test = new Vector<Command>();
 				test.add(new Command(ProtocolUtils.COMMAND_SYSINFO));
-				String message = pu.createMessage(test);
+				String message = pu.createCommandMessage(test);
 				oOS.write(message + "\n");
 				oOS.flush();
 			}
@@ -75,7 +95,7 @@ public class EchoClient {
 			{
 				Vector<Command> test = new Vector<Command>();
 				test.add(new Command(ProtocolUtils.COMMAND_SYSINFO));
-				String message = pu.createMessage(test);
+				String message = pu.createCommandMessage(test);
 				oOS.write(message + "\n");
 				oOS.flush();
 			}
@@ -83,24 +103,16 @@ public class EchoClient {
 			
 			//oOS.write(ProtocolUtils.HC_TERMINATE + "\n");
 			//oOS.flush();
-			String serverMessage;
+			responseReceiverThread.start();
 			while(clientRunFlag) {
-				System.out.println("Handling message from server");
-				serverMessage = oIS.readLine();
-				if(serverMessage == null) {
-					System.out.println("Server probably closed the connection");
-					clientRunFlag = false;
-				}
-				else if(serverMessage.equals(ProtocolUtils.HC_TERMINATE)) {
-					System.out.println("Server has sent terminate connection command");
-					clientRunFlag = false;
-				}
+			
 			}
 		} catch (IOException ioe) {
 			System.out
 					.println("Connection to server closed unexpectedly");
 		} finally {
 			try {
+				
 				// Close the streams
 				if (oOS != null)
 					oOS.close();
@@ -112,6 +124,38 @@ public class EchoClient {
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
+		}
+	}
+	
+	static class ResponseReceiver extends Thread {
+		
+		public ResponseReceiver() {
+			System.out.println("Staring Response Receiver");
+		}
+
+		public void run() {
+			String serverMessage = null;
+			while(receiverThreadRunning)
+			{
+				try {
+					serverMessage = (String)oIS.readLine();
+				} catch (Exception e) {
+					System.out.println("Connection closed. Terminating ResponseReceiverThread ");
+				} 
+				
+				System.out.println("Handling new message from server");
+				if(serverMessage == null) {
+					System.out.println("Server probably closed the connection");
+					clientRunFlag = false;
+					receiverThreadRunning = false;
+				}
+				else if(serverMessage.equals(ProtocolUtils.HC_TERMINATE)) {
+					System.out.println("Server has sent terminate connection command");
+					clientRunFlag = false;
+					receiverThreadRunning = false;
+				}
+			}
+			System.out.println("Terminating ResponseReceiverThread");
 		}
 	}
 }

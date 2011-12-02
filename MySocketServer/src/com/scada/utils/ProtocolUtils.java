@@ -28,6 +28,7 @@ public class ProtocolUtils {
 	public final static String XML_DOC_START = "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n";
 	public final static String MESSAGE_START = "message";
 	public final static String COMMAND_START = "command";
+	public final static String RESPONSE_START = "response";
 	public final static String COMMAND_TYPE_ATR = "type";
 	public final static String HC_TERMINATE = "<HC_TERMINATE>";
 
@@ -78,10 +79,10 @@ public class ProtocolUtils {
 	 * @param command
 	 * @return
 	 */
-	public String createMessage(Command command) {
+	public String createCommandMessage(Command command) {
 		Vector<Command> cL = new Vector<Command>();
-		cL.add(new Command(ProtocolUtils.COMMAND_SYSINFO));
-		return createMessage(cL);
+		cL.add(command);
+		return createCommandMessage(cL);
 		
 	}
 	
@@ -90,9 +91,32 @@ public class ProtocolUtils {
 	 * @param commands
 	 * @return
 	 */
-	public String createMessage(Vector<Command> commands) {
+	public String createCommandMessage(Vector<Command> commands) {
 		Document doc = createXMLDocument();
-		doc = createDOMTree(doc, commands);
+		doc = createCommandDOMTree(doc, commands);
+		return serializeXMLToString(doc);
+	}
+	
+	/**
+	 * Create message from one response
+	 * @param response
+	 * @return
+	 */
+	public String createResponseMessage(Response response) {
+		Vector<Response> rL = new Vector<Response>();
+		rL.add(response);
+		return createResponseMessage(rL);
+		
+	}
+	
+	/**
+	 * Create Serialized XML message from list of Responses 
+	 * @param response list
+	 * @return
+	 */
+	public String createResponseMessage(Vector<Response> responseList) {
+		Document doc = createXMLDocument();
+		doc = createResponseDOMTree(doc, responseList);
 		return serializeXMLToString(doc);
 	}
 	
@@ -149,7 +173,7 @@ public class ProtocolUtils {
 	 * @param commands
 	 * @return
 	 */
-	private Document createDOMTree(Document doc, Vector<Command> commands){
+	private Document createCommandDOMTree(Document doc, Vector<Command> commands){
 		Element rootEle = doc.createElement(ProtocolUtils.MESSAGE_START);
 		doc.appendChild(rootEle);
 
@@ -178,5 +202,42 @@ public class ProtocolUtils {
 		
 		return commandElement;
 	}
+	
+	
+	/**
+	 * Create Doom tree containing responses
+	 * @param doc
+	 * @param responses
+	 * @return
+	 */
+	private Document createResponseDOMTree(Document doc, Vector<Response> responses){
+		Element rootEle = doc.createElement(ProtocolUtils.MESSAGE_START);
+		doc.appendChild(rootEle);
+
+		//No enhanced for
+		Iterator<Response> it  = responses.iterator();
+		while(it.hasNext()) {
+			Element responseElement = createResponseElement(doc,(Response)it.next());
+			rootEle.appendChild(responseElement);
+		}
+		return doc;
+	}
+	
+	/**
+	 * Helper method which creates a XML element 
+
+	 * @param c The command for which we need to create an xml representation
+	 * @return XML element snippet representing a command
+	 */
+	private Element createResponseElement(Document doc, Response r){
+
+		Element responseElement = doc.createElement(ProtocolUtils.RESPONSE_START);
+		responseElement.setAttribute(ProtocolUtils.COMMAND_TYPE_ATR, r.getCommandType());
+
+		//Implement command building
+		
+		return responseElement;
+	}
+
 
 }
