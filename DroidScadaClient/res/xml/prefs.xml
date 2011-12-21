@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" >
+    <PreferenceCategory android:key="AuthenticationSettings" android:title="@string/PrefsCat_TwitterSettingsTitle">
+        <EditTextPreference android:title="@string/txtPrefs_ConsumerKeyTitle" android:key="ConsumerKey" android:summary="@string/txtPrefs_ConsumerKeySummary"/>
+        <EditTextPreference android:title="@string/txtPrefs_ConsumerSecretTitle" android:key="ConsumerSecret" android:summary="@string/txtPrefs_ConsumerSecretSummary"/>
+    </PreferenceCategory>
+
+    
+
+</PreferenceScreen>

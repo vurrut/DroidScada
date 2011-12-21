@@ -10,9 +10,9 @@ public class ProviderServerHost {
 		providerServerThread.setDaemon(true);
 		providerServerThread.start();
 		
-		try{Thread.sleep(20000);}
-		catch(Exception ex){}
-		//while (true);
-		s.stopServer();
+		/**try{Thread.sleep(20000);}
+		catch(Exception ex){}**/
+		while (true);
+		//s.stopServer();
 	}
 }

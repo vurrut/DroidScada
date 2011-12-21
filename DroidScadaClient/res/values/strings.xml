@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DSClient</string>
+    <string name="StatusActivity_lblActivityTitle">Status Update</string>
+    <string name="StatusActivity_txtHintStatus">Please enter your status message</string>
+    <string name="StatusActivity_btnUpdate">Update</string>
+    <string name="prefsMenuItem_SettingsTitle">Settings</string>
+    <string name="PrefsCat_TwitterSettingsTitle">Authentication settings</string>
+    <string name="txtPrefs_ConsumerKeyTitle">Consumer Key</string>
+    <string name="txtPrefs_ConsumerSecretTitle">Consumer Secret</string>
+    <string name="txtPrefs_ConsumerKeySummary">Your Twitter application consumer key</string>
+    <string name="txtPrefs_ConsumerSecretSummary">Your Twitter application secret</string>
+    <string name="manifAppNodes_PrefsActivityLabel">Settings</string>
+	<string name="serviceStartMenuItemTitle">Start service</string>
+	<string name="serviceStopMenuItemTitle">Stop service</string>
+	<string name="TimelineActivity_lblActivityTitle">Timeline</string>
+	<string name="timelineActMenuItem_activityTitle">Timeline</string>
+	<string name="textCreatedAt">Created at</string>
+	<string name="textUser">Username</string>
+	<string name="textText">Text</string>
+	<string name="titleStatus">Status</string>
+	<string name="titleTimeline">Timeline</string>
+	<string name="titlePrefs">Settings</string>
+	<string name="titlePurge">Purge</string>
+	<string name="titleServiceStart">Start service</string>
+	<string name="titleServiceStop">Stop service</string>
+	<string name="msgAllDataPurged">Local data purged</string>
+	<string name="msgLastTimelineUpdate">Last updated</string>
+</resources>
