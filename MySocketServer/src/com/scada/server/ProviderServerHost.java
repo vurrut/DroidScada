@@ -9,10 +9,12 @@ public class ProviderServerHost {
 		providerServerThread.setName("ProviderServerThread");
 		providerServerThread.setDaemon(true);
 		providerServerThread.start();
-		
-		/**try{Thread.sleep(20000);}
-		catch(Exception ex){}**/
-		while (true);
+
+		synchronized(s) {
+			try{ s.wait(); } catch(InterruptedException ie) {
+				//TODO: What to do here?
+			}
+		}
 		//s.stopServer();
 	}
 }

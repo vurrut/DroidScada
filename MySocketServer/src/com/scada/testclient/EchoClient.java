@@ -1,4 +1,4 @@
-package com.scada.server;
+package com.scada.testclient;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -7,15 +7,10 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.util.List;
 import java.util.Vector;
 
-import com.scada.server.ClientThread.CommandDispatcher;
-import com.scada.server.ClientThread.ResponseDispatcher;
-import com.scada.server.handlers.CHSysInfo;
 import com.scada.utils.Command;
 import com.scada.utils.ProtocolUtils;
-import com.scada.utils.Response;
 
 // A client for our multithreaded EchoServer. 
 public class EchoClient {
@@ -88,7 +83,7 @@ public class EchoClient {
 				oOS.flush();
 			}
 			
-			try{Thread.sleep(10000);}
+			try{Thread.sleep(5000);}
 			catch(Exception e){}
 			
 			for( int i = 0; i < 5; i++)
@@ -105,7 +100,12 @@ public class EchoClient {
 			//oOS.flush();
 			responseReceiverThread.start();
 			while(clientRunFlag) {
-			
+				synchronized(responseReceiver) {
+					try{responseReceiver.wait();}
+					catch(InterruptedException ie){
+						//TODO: What to do here?
+					}
+				}
 			}
 		} catch (IOException ioe) {
 			System.out
@@ -141,21 +141,28 @@ public class EchoClient {
 					serverMessage = (String)oIS.readLine();
 				} catch (Exception e) {
 					System.out.println("Connection closed. Terminating ResponseReceiverThread ");
+					terminate();
 				} 
 				
 				System.out.println("Handling new message from server");
 				if(serverMessage == null) {
 					System.out.println("Server probably closed the connection");
-					clientRunFlag = false;
-					receiverThreadRunning = false;
+					terminate();
 				}
 				else if(serverMessage.equals(ProtocolUtils.HC_TERMINATE)) {
 					System.out.println("Server has sent terminate connection command");
-					clientRunFlag = false;
-					receiverThreadRunning = false;
+					terminate();
 				}
 			}
 			System.out.println("Terminating ResponseReceiverThread");
+		}
+		
+		private void terminate() {
+			synchronized(this) {
+				notifyAll();
+			}
+			receiverThreadRunning = false;
+			clientRunFlag = false;
 		}
 	}
 }

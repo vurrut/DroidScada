@@ -6,12 +6,15 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
+import java.util.EventObject;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Queue;
 
 import com.scada.server.handlers.CHSysInfo;
+import com.scada.server.handlers.HandlerBase;
 import com.scada.server.handlers.HandlerFactory;
+import com.scada.server.handlers.events.ResponseEvent;
+import com.scada.server.handlers.events.ResponseEventListener;
 import com.scada.utils.Command;
 import com.scada.utils.ProtocolUtils;
 import com.scada.utils.Response;
@@ -116,6 +119,10 @@ public class ClientThread extends Thread {
 					else {
 						handleHCCommand(clientMessage);
 					}
+					
+					synchronized (commandDispatcher) {
+						commandDispatcher.notifyAll();
+					}
 				}
 				else
 				{
@@ -161,7 +168,7 @@ public class ClientThread extends Thread {
 		}
 	}
 	
-	class CommandDispatcher extends Thread {
+	class CommandDispatcher extends Thread implements ResponseEventListener {
 		
 		public CommandDispatcher() {
 			System.out.println("Starting CommandDispatcher for clientID: " + clientID);
@@ -169,36 +176,52 @@ public class ClientThread extends Thread {
 
 		public void run() {
 			Command nextCommand;
+			int cycle = 1;
 			while(dispatcherThreadRunning)
 			{
-				synchronized (commandQueue) {
-					nextCommand = commandQueue.poll();
-				}
-				
+				System.out.println("CommandDispatcher Cycle: " + cycle++);
+				nextCommand = commandQueue.poll();
+								
 				if(nextCommand != null) {
 					System.out.println("Pulled command from queue");
 					
-					Object handler = hf.getHandler(nextCommand.getCommandType());
-					List<Response> responses = null;
+					Object handler = hf.getHandler(nextCommand.getCommandType(), this);
 					if( handler != null ) {
 						if( handler instanceof CHSysInfo)
-							responses = ((CHSysInfo)handler).handleCommand(nextCommand);
+							((HandlerBase)handler).handleCommand(nextCommand);
+						
+						((HandlerBase)handler).notifyProcessor();
 					}
 					else
 						System.out.println("Unknown command. Skipping command " + nextCommand.getCommandType());
-					
-					for( Response r : responses) {
-						synchronized(responseQueue) {
-							responseQueue.add(r);
+				}
+				else {
+					synchronized(this) {
+						try { wait(); } catch(InterruptedException ie) {
+							//TODO: What to do here?
 						}
 					}
 				}
 			}
 			System.out.println("Terminating CommandDispatcherThread for clientID: " + clientID);
 		}
+
+		@Override
+		public void handleResponseEvent(EventObject e) {
+			ResponseEvent event = (ResponseEvent)e;
+			for( Response r : event.responses) {
+				responseQueue.add(r);
+			}
+			
+			synchronized (responseDispatcher) {
+				responseDispatcher.notifyAll();
+			}
+		}
+		
+		
 	}
 	
-class ResponseDispatcher extends Thread {
+	class ResponseDispatcher extends Thread {
 		
 		public ResponseDispatcher() {
 			System.out.println("Starting ResponseDispatcher for clientID: " + clientID);
@@ -206,12 +229,13 @@ class ResponseDispatcher extends Thread {
 
 		public void run() {
 			Response nextResponse;
+			int cycle = 1;
+			
 			while(dispatcherThreadRunning)
 			{
-				synchronized(responseQueue) {
-					nextResponse = responseQueue.poll();
-				}
-				
+				System.out.println("ResponseDispatcher Cycle: " + cycle++);
+				nextResponse = responseQueue.poll();
+								
 				if(nextResponse != null) {
 					System.out.println("Pulled response from queue");
 					String responseMessage = pu.createResponseMessage(nextResponse);
@@ -221,6 +245,13 @@ class ResponseDispatcher extends Thread {
 					}
 					catch(IOException ioe) {
 						System.out.println("Error sending message to client in ResponseDispatcher for clientID: " + clientID);
+					}
+				}
+				else {
+					synchronized(this) {
+						try { wait(); } catch(InterruptedException ie) {
+							//TODO: What to do here?
+						}
 					}
 				}
 			}
