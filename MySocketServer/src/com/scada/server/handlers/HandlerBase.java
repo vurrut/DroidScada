@@ -1,17 +1,22 @@
 package com.scada.server.handlers;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.Vector;
 
+import com.scada.server.handlers.events.ResponseEvent;
 import com.scada.server.handlers.events.ResponseEventListener;
 import com.scada.utils.Command;
 import com.scada.utils.ProtocolUtils;
+import com.scada.utils.Response;
 
 public abstract class HandlerBase {
 	private final String commandType;
 	protected Queue<Command> commandQueue;
+	protected Queue<Response> responseQueue;
 	protected List<ResponseEventListener> responseEventListeners;
 	
 	private boolean runFlag = false;
@@ -21,6 +26,7 @@ public abstract class HandlerBase {
 	public HandlerBase(String type) {
 		commandType = type;
 		commandQueue = new LinkedList<Command>();
+		responseQueue = new LinkedList<Response>();
 		responseEventListeners = new ArrayList<ResponseEventListener>();
 		
 		runFlag = true;
@@ -36,6 +42,7 @@ public abstract class HandlerBase {
 	
 	public void handleCommand(Command c) {
 		commandQueue.add(c);
+		notifyProcessor();
 	}
 	
 	public synchronized void addEventListener(ResponseEventListener listener) {
@@ -47,9 +54,31 @@ public abstract class HandlerBase {
 		responseEventListeners.remove(listener);
 	}
 	
+	private synchronized void sendResponsesInQueue() {
+		Vector<Response> rL = new Vector<Response>();
+		Response nextResponse = responseQueue.poll();
+		while(nextResponse != null) {
+			rL.add(nextResponse);
+			nextResponse = responseQueue.poll();
+		}
+		ResponseEvent event = new ResponseEvent(this, rL);
+		
+	    Iterator<ResponseEventListener> i = responseEventListeners.iterator();
+	    while(i.hasNext())	{
+	      i.next().handleResponseEvent(event);
+	    }
+	}
+	
 	public synchronized void notifyProcessor() {
-		synchronized (handlerProcessor) {
-			handlerProcessor.notifyAll();
+		synchronized (handlerProcessorThread) {
+			handlerProcessorThread.notifyAll();
+		}
+	}
+	
+	public synchronized void stopHandler() {
+		synchronized (handlerProcessorThread) {
+			runFlag = false;
+			handlerProcessorThread.notifyAll();
 		}
 	}
 	
@@ -70,8 +99,9 @@ public abstract class HandlerBase {
 					processCommand(nextCommand);
 				}
 				else {
-					synchronized(this) {
-						try { wait(); } catch(InterruptedException ie) {
+					sendResponsesInQueue();
+					synchronized(handlerProcessorThread) {
+						try { handlerProcessorThread.wait(); } catch(InterruptedException ie) {
 							//TODO: What to do here?
 						}
 					}

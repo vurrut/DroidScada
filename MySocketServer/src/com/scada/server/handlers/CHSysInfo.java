@@ -6,15 +6,12 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.scada.server.handlers.events.ResponseEvent;
-import com.scada.server.handlers.events.ResponseEventListener;
 import com.scada.utils.Command;
 import com.scada.utils.ProtocolUtils;
 import com.scada.utils.Response;
@@ -36,19 +33,11 @@ public class CHSysInfo extends HandlerBase {
 		}
 		else {
 			checkForUpdatedData();
-			fireEvent(createResponseList());
+			responseQueue.addAll(createResponseList());
+			//fireEvent(createResponseList());
 			//return createResponseList();
 		}
 	}
-	
-	private synchronized void fireEvent( List<Response> responseList) {
-		ResponseEvent event = new ResponseEvent(this, responseList);
-	    Iterator<ResponseEventListener> i = responseEventListeners.iterator();
-	    while(i.hasNext())	{
-	      i.next().handleResponseEvent(event);
-	    }
-	  }
-
 	
 	private List<Response> createResponseList() {
 		List<Response> l = new LinkedList<Response>();

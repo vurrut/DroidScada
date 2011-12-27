@@ -65,6 +65,16 @@ public class DSCApplication extends Application /**implements OnSharedPreference
 	public Command getNextCommand() {
 		return commandQueue.poll();
 	}
+	
+	public Vector<Command> getAllCommandsInQueue() {
+		Vector<Command> cL = new Vector<Command>();
+		Command nextCommand = commandQueue.poll();
+		while(nextCommand != null) {
+			cL.add(nextCommand);
+			nextCommand = commandQueue.poll();
+		}
+		return cL;
+	}
 
 	/**@Override
 	public synchronized void onSharedPreferenceChanged(SharedPreferences sharedPreferences,

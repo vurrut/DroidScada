@@ -7,31 +7,35 @@ import com.scada.server.handlers.events.ResponseEventListener;
 import com.scada.utils.ProtocolUtils;
 
 public class HandlerFactory {
-	Map<String,Object> handlers;
+	Map<String,HandlerBase> handlers;
 	
 	public HandlerFactory() {
-		handlers = new HashMap<String, Object>();
+		handlers = new HashMap<String, HandlerBase>();
 	}
 	
-	public Object getHandler(String handlerIdentifier, ResponseEventListener rel) {
+	public HandlerBase getHandler(String handlerIdentifier, ResponseEventListener rel) {
 		return createAndReturnHandler(handlerIdentifier, rel);
 	}	
 	
-	private Object createAndReturnHandler(String handlerIdentifier, ResponseEventListener rel) {
+	private HandlerBase createAndReturnHandler(String handlerIdentifier, ResponseEventListener rel) {
 		if(handlers.containsKey(handlerIdentifier))
 			return handlers.get(handlerIdentifier);
 		else {
-			Object handler = null;
+			HandlerBase handler = null;
 			if( handlerIdentifier.equals(ProtocolUtils.COMMAND_SYSINFO))
 				handler = new CHSysInfo();
 			
+			handler.addEventListener(rel);
+			
 			handlers.put(handlerIdentifier, handler );
-			((HandlerBase)handler).addEventListener(rel);
+						
 			return handler;
 		}
 	}
 	
-	private void addListener() {
-		
+	public synchronized void stopHandlers() {
+		for( HandlerBase b : handlers.values()) {
+			b.stopHandler();
+		}
 	}
 }

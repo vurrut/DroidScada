@@ -74,7 +74,9 @@ public class EchoClient {
 			oIS = new BufferedReader(new InputStreamReader(
 					s.getInputStream()));
 			
-			for( int i = 0; i < 10; i++)
+			responseReceiverThread.start();
+			
+			for( int i = 0; i < 1500; i++)
 			{
 				Vector<Command> test = new Vector<Command>();
 				test.add(new Command(ProtocolUtils.COMMAND_SYSINFO));
@@ -96,17 +98,17 @@ public class EchoClient {
 			}
 			
 			
-			//oOS.write(ProtocolUtils.HC_TERMINATE + "\n");
-			//oOS.flush();
-			responseReceiverThread.start();
-			while(clientRunFlag) {
-				synchronized(responseReceiver) {
-					try{responseReceiver.wait();}
-					catch(InterruptedException ie){
-						//TODO: What to do here?
-					}
+			oOS.write(ProtocolUtils.HC_TERMINATE + "\n");
+			oOS.flush();
+			
+			
+			synchronized(responseReceiver) {
+				try{responseReceiver.wait();}
+				catch(InterruptedException ie){
+					//TODO: What to do here?
 				}
 			}
+			
 		} catch (IOException ioe) {
 			System.out
 					.println("Connection to server closed unexpectedly");
@@ -135,6 +137,7 @@ public class EchoClient {
 
 		public void run() {
 			String serverMessage = null;
+			int cycle = 1;
 			while(receiverThreadRunning)
 			{
 				try {
@@ -144,7 +147,7 @@ public class EchoClient {
 					terminate();
 				} 
 				
-				System.out.println("Handling new message from server");
+				System.out.println("Handling new message from server: " + cycle++);
 				if(serverMessage == null) {
 					System.out.println("Server probably closed the connection");
 					terminate();

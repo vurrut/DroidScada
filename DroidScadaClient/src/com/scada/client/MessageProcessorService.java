@@ -1,6 +1,7 @@
 package com.scada.client;
 
 import java.io.IOException;
+import java.util.Vector;
 
 import android.app.Service;
 import android.content.Intent;
@@ -105,7 +106,7 @@ public class MessageProcessorService extends Service {
 						intent.putExtra(Constants.NEW_STATUS_EXTRA_COUNT,newUpdates);
 						updaterService.sendBroadcast(intent);
 					}*/
-					Command currentCommand = appObject.getNextCommand();
+					/**Command currentCommand = appObject.getNextCommand();
 					while (currentCommand != null ) {
 						String xmlMessage = appObject.getProtocolUtils().createCommandMessage(currentCommand);
 						try {
@@ -116,7 +117,26 @@ public class MessageProcessorService extends Service {
 						}
 						
 						currentCommand = appObject.getNextCommand();
+					}*/
+				
+					Vector<Command> currentCommand = appObject.getAllCommandsInQueue();
+				
+					String xmlMessage = appObject.getProtocolUtils().createCommandMessage(currentCommand);
+					try {
+						streamManager.StreamWriter.write(xmlMessage + "\n");
+						streamManager.StreamWriter.flush();
+					} catch (IOException ioe) {
+						Log.d(localTAG, "Error trying to send message to server");
 					}
+					
+					synchronized (this) {
+						try{ wait(); } catch(InterruptedException ie) {
+							//TODO: What to do here?
+						}
+					}
+					
+					
+					//TODO: Implement Synchronization and suspending of thread when there is nothing to do.
 					
 				/**} catch (InterruptedException e) {
 					Log.d(TAG, "CommandProcessor thread interupted");
@@ -147,23 +167,26 @@ public class MessageProcessorService extends Service {
 			Log.d(localTAG, "ResponseProcessor running");
 			StreamManager streamManager = appObject.getStreamManager("",0);
 			String serverMessage = null;
+			int cycle = 1;
 			
 			while (messageProcessor.runFlag) {
 				try {
 					serverMessage = (String)streamManager.StreamReader.readLine();
 				} catch (Exception e) {
 					Log.d(localTAG, "Connection closed. Terminating ResponseReceiverThread ");
+					messageProcessor.runFlag = false;
 				} 
 				
-				Log.d(localTAG, "Handling new message from server");
+				
+				Log.d(localTAG, "Handling new message from server: " + cycle++ );
 				if(serverMessage == null) {
 					Log.d(localTAG, "Server probably closed the connection");
-					//clientRunFlag = false;
+					messageProcessor.runFlag = false;
 					//receiverThreadRunning = false;
 				}
 				else if(serverMessage.equals(ProtocolUtils.HC_TERMINATE)) {
 					Log.d(localTAG, "Server has sent terminate connection command");
-					//clientRunFlag = false;
+					messageProcessor.runFlag = false;
 					//receiverThreadRunning = false;
 				}
 			}

@@ -9,8 +9,9 @@ import java.net.Socket;
 import java.util.EventObject;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.Timer;
+import java.util.TimerTask;
 
-import com.scada.server.handlers.CHSysInfo;
 import com.scada.server.handlers.HandlerBase;
 import com.scada.server.handlers.HandlerFactory;
 import com.scada.server.handlers.events.ResponseEvent;
@@ -99,35 +100,36 @@ public class ClientThread extends Thread {
 				clientMessage = (String)bR.readLine();
 			} catch (Exception e) {
 				System.out.println("Connection closed. Terminating client thred for clientID: " + clientID);
-				cleanUpClientConnection();
+				m_bRunThread = false;
 			} 
 			
 			if( m_bRunThread ) {
-				System.out.println("Handling new message from client");
 				if( clientMessage != null ) {	
-					
 					if( pu.parseMessageAndCreateCommands(clientMessage) )
 					{
+						System.out.println("Handling new message from client, commands in queue: " + commandQueue.size());
 						Command c = pu.getNextCommand();
 						while(c != null){
 							synchronized(commandQueue) {
 								commandQueue.add(c);
 							}
+
 							c = pu.getNextCommand();
 						}
 					}
 					else {
+						System.out.println("Handling new HC message from client");
 						handleHCCommand(clientMessage);
 					}
 					
-					synchronized (commandDispatcher) {
-						commandDispatcher.notifyAll();
+					synchronized (commandDispatcherThread) {
+						commandDispatcherThread.notifyAll();
 					}
 				}
 				else
 				{
 					System.out.println("ClientID " + clientID + " probably closed connection unexpectedly");
-					cleanUpClientConnection();
+					m_bRunThread = false;
 				}
 			}
 		}
@@ -136,7 +138,8 @@ public class ClientThread extends Thread {
 	
 	private void handleHCCommand(String command) {
 		if(command.equals(ProtocolUtils.HC_TERMINATE)) {
-			cleanUpClientConnection();
+			m_bRunThread = false;
+			//cleanUpClientConnection();
 			System.out.println("Received terminate command from client");
 		}
 		else {
@@ -147,28 +150,31 @@ public class ClientThread extends Thread {
 	private void cleanUpClientConnection() {
 		// Clean up
 		try {
+			hf.stopHandlers();
+					
 			if(dispatcherThreadRunning) {
 				dispatcherThreadRunning = false;
 			}
-			bR.close();
+						
+			synchronized(commandDispatcherThread) {
+				commandDispatcherThread.notifyAll();
+			}
+			
+			synchronized(responseDispatcherThread) {
+				responseDispatcherThread.notifyAll();
+			}
+			
+			
+			/**bR.close();
 			bW.close();
-			clientSocket.close();
-		} catch (IOException ioe) {
+			clientSocket.close();*/
+			new CloseStreams(2);
+		} catch (Exception ioe) {
 			ioe.printStackTrace();
-		} finally {
-			pu = null;
-			hf = null;
-			commandQueue = null;
-			commandDispatcher = null;
-			commandDispatcherThread = null;
-			responseQueue = null;
-			responseDispatcher = null;
-			responseDispatcherThread = null;
-			m_bRunThread = false;
-		}
+		} 
 	}
 	
-	class CommandDispatcher extends Thread implements ResponseEventListener {
+	class CommandDispatcher extends Thread {
 		
 		public CommandDispatcher() {
 			System.out.println("Starting CommandDispatcher for clientID: " + clientID);
@@ -180,48 +186,39 @@ public class ClientThread extends Thread {
 			while(dispatcherThreadRunning)
 			{
 				System.out.println("CommandDispatcher Cycle: " + cycle++);
-				nextCommand = commandQueue.poll();
+				synchronized(commandQueue) {
+					nextCommand = commandQueue.poll();
+				}
 								
 				if(nextCommand != null) {
 					System.out.println("Pulled command from queue");
 					
-					Object handler = hf.getHandler(nextCommand.getCommandType(), this);
+					HandlerBase handler = hf.getHandler(nextCommand.getCommandType(), responseDispatcher);
 					if( handler != null ) {
-						if( handler instanceof CHSysInfo)
-							((HandlerBase)handler).handleCommand(nextCommand);
-						
-						((HandlerBase)handler).notifyProcessor();
+						handler.handleCommand(nextCommand);
 					}
 					else
 						System.out.println("Unknown command. Skipping command " + nextCommand.getCommandType());
 				}
 				else {
-					synchronized(this) {
-						try { wait(); } catch(InterruptedException ie) {
-							//TODO: What to do here?
+					if(dispatcherThreadRunning && commandQueue.isEmpty() ) {
+						synchronized(commandDispatcherThread) {
+							try { 
+								commandDispatcherThread.wait(); 
+								System.out.println("CommandDispatcher waking up................");
+							} catch(InterruptedException ie) {
+								System.out.println("CommandDispatcherThread interrupted");
+								//TODO: What to do here?
+							}
 						}
 					}
 				}
 			}
 			System.out.println("Terminating CommandDispatcherThread for clientID: " + clientID);
 		}
-
-		@Override
-		public void handleResponseEvent(EventObject e) {
-			ResponseEvent event = (ResponseEvent)e;
-			for( Response r : event.responses) {
-				responseQueue.add(r);
-			}
-			
-			synchronized (responseDispatcher) {
-				responseDispatcher.notifyAll();
-			}
-		}
-		
-		
 	}
 	
-	class ResponseDispatcher extends Thread {
+	class ResponseDispatcher extends Thread implements ResponseEventListener{
 		
 		public ResponseDispatcher() {
 			System.out.println("Starting ResponseDispatcher for clientID: " + clientID);
@@ -234,28 +231,89 @@ public class ClientThread extends Thread {
 			while(dispatcherThreadRunning)
 			{
 				System.out.println("ResponseDispatcher Cycle: " + cycle++);
-				nextResponse = responseQueue.poll();
+				synchronized(responseQueue) {
+					nextResponse = responseQueue.poll();
+				}
 								
 				if(nextResponse != null) {
 					System.out.println("Pulled response from queue");
 					String responseMessage = pu.createResponseMessage(nextResponse);
 					try {
 						bW.write(responseMessage + "\n");
-						bW.flush();
+						//bW.flush();
 					}
 					catch(IOException ioe) {
 						System.out.println("Error sending message to client in ResponseDispatcher for clientID: " + clientID);
 					}
 				}
 				else {
-					synchronized(this) {
-						try { wait(); } catch(InterruptedException ie) {
-							//TODO: What to do here?
+					try {
+						bW.flush();
+					}
+					catch(IOException ioe) {
+						System.out.println("Error sending message to client in ResponseDispatcher for clientID: " + clientID);
+					}
+					if(dispatcherThreadRunning && responseQueue.isEmpty()) {
+						synchronized(responseDispatcherThread) {
+							try { responseDispatcherThread.wait(); } catch(InterruptedException ie) {
+								//TODO: What to do here?
+							}
 						}
 					}
 				}
 			}
 			System.out.println("Terminating ResponseDispatcherThread for clientID: " + clientID);
 		}
+		
+		@Override
+		public void handleResponseEvent(EventObject e) {
+			ResponseEvent event = (ResponseEvent)e;
+			for( Response r : event.responses) {
+				synchronized(responseQueue) {
+					responseQueue.add(r);
+				}
+			}
+			
+			synchronized (responseDispatcherThread) {
+				responseDispatcherThread.notifyAll();
+			}
+		}
+	}
+	
+	class CloseStreams {
+	    Timer timer;
+
+	    public CloseStreams(int seconds) {
+	        timer = new Timer();
+	        timer.schedule(new StreamCloserTask(), seconds*1000);
+		}
+
+	    class StreamCloserTask extends TimerTask {
+	        public void run() {
+	            try {
+	            	System.out.println("Closing streams for client " + clientID);
+	            	bW.close();
+	            	bR.close();
+	            	clientSocket.close();
+	            	
+	            	System.out.println("Doing final cleanup for client " + clientID);
+	    			pu = null;
+	    			hf = null;
+	    			commandQueue = null;
+	    			commandDispatcher = null;
+	    			commandDispatcherThread = null;
+	    			responseQueue = null;
+	    			responseDispatcher = null;
+	    			responseDispatcherThread = null;
+	    			m_bRunThread = false;
+	            } catch(IOException ioe) {
+	            	//TODO: ?
+	            	System.out.println("Exception when closing streams");
+	            }
+	            finally {
+	            	timer.cancel(); //Terminate the timer thread
+	            }
+	        }
+	    }
 	}
 }

@@ -35,17 +35,22 @@ public class TimelineActivity extends BaseActivity {
 		testButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
             	Vector<Command> test = new Vector<Command>();
-    			for( int i = 0; i < 5; i++)
+    			for( int i = 0; i < 1000; i++)
     			{
     				test.add(new Command(ProtocolUtils.COMMAND_SYSINFO));
     			}
     			((DSCApplication)getApplication()).addCommandCollectionToQueue(test);
+    			startService();
             }
         });
 		
 		//TODO: Stream initialization should be moved to service in order to avoid hang in UI in case there is connection issues 
 		streamManager = ((DSCApplication)getApplication()).getStreamManager("10.0.0.135", 12111);
-		startService(new Intent(this, MessageProcessorService.class));	
+		//startService(new Intent(this, MessageProcessorService.class));	
+	}
+	
+	private void startService() {
+		startService(new Intent(this, MessageProcessorService.class));
 	}
 	
 	@Override
