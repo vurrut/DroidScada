@@ -5,11 +5,11 @@ public class ProviderServerHost {
 	static Thread providerServerThread;
 	
 	public static void main(String[] args) {
-		providerServerThread = new Thread(s = new ProviderServer(12111));
+		providerServerThread = new Thread(s = new ProviderServer(12111, 5000));
 		providerServerThread.setName("ProviderServerThread");
 		providerServerThread.setDaemon(true);
 		providerServerThread.start();
-
+		
 		synchronized(s) {
 			try{ s.wait(); } catch(InterruptedException ie) {
 				//TODO: What to do here?

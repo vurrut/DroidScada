@@ -7,9 +7,11 @@ import com.scada.server.handlers.events.ResponseEventListener;
 import com.scada.utils.ProtocolUtils;
 
 public class HandlerFactory {
-	Map<String,HandlerBase> handlers;
+	private Map<String,HandlerBase> handlers;
+	private int clientID; 
 	
-	public HandlerFactory() {
+	public HandlerFactory(int id) {
+		clientID = id;
 		handlers = new HashMap<String, HandlerBase>();
 	}
 	
@@ -23,7 +25,7 @@ public class HandlerFactory {
 		else {
 			HandlerBase handler = null;
 			if( handlerIdentifier.equals(ProtocolUtils.COMMAND_SYSINFO))
-				handler = new CHSysInfo();
+				handler = new CHSysInfo(clientID);
 			
 			handler.addEventListener(rel);
 			

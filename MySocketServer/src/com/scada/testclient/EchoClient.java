@@ -109,6 +109,8 @@ public class EchoClient {
 				}
 			}
 			
+			System.exit(0);
+			
 		} catch (IOException ioe) {
 			System.out
 					.println("Connection to server closed unexpectedly");
@@ -132,7 +134,7 @@ public class EchoClient {
 	static class ResponseReceiver extends Thread {
 		
 		public ResponseReceiver() {
-			System.out.println("Staring Response Receiver");
+			System.out.println("Starting Response Receiver");
 		}
 
 		public void run() {
@@ -161,11 +163,12 @@ public class EchoClient {
 		}
 		
 		private void terminate() {
+			receiverThreadRunning = false;
+			clientRunFlag = false;
+			
 			synchronized(this) {
 				notifyAll();
 			}
-			receiverThreadRunning = false;
-			clientRunFlag = false;
 		}
 	}
 }

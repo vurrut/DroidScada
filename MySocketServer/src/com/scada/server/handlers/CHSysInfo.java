@@ -20,8 +20,8 @@ public class CHSysInfo extends HandlerBase {
 	private static Map<String,Long> fileModifiedList;
 	
 	
-	public CHSysInfo() { 
-		super(ProtocolUtils.COMMAND_SYSINFO);
+	public CHSysInfo(int id) { 
+		super(ProtocolUtils.COMMAND_SYSINFO, id);
 		fileModifiedList = new HashMap<String, Long>();
 	}
 	

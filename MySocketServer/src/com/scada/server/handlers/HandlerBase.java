@@ -18,12 +18,14 @@ public abstract class HandlerBase {
 	protected Queue<Command> commandQueue;
 	protected Queue<Response> responseQueue;
 	protected List<ResponseEventListener> responseEventListeners;
+	private int clientID;
 	
 	private boolean runFlag = false;
 	private HandlerProcessor handlerProcessor;
 	private Thread handlerProcessorThread;
 	
-	public HandlerBase(String type) {
+	public HandlerBase(String type, int id) {
+		clientID = id;
 		commandType = type;
 		commandQueue = new LinkedList<Command>();
 		responseQueue = new LinkedList<Response>();
@@ -31,7 +33,7 @@ public abstract class HandlerBase {
 		
 		runFlag = true;
 		handlerProcessorThread = new Thread(handlerProcessor = new HandlerProcessor());
-		handlerProcessorThread.setName("handlerProcessorThread-" + commandType);
+		handlerProcessorThread.setName("handlerProcessorThread-" + clientID + ":" + commandType);
 		handlerProcessorThread.setDaemon(true);
 		handlerProcessorThread.start();
 	}

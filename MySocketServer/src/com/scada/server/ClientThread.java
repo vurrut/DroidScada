@@ -42,7 +42,7 @@ public class ClientThread extends Thread {
 		this.pu = new ProtocolUtils();
 		this.clientSocket = s;
 		this.clientID = clientID;
-		this.hf = new HandlerFactory();
+		this.hf = new HandlerFactory(clientID);
 		
 		this.commandQueue = new LinkedList<Command>();
 		this.commandDispatcherThread = new Thread(commandDispatcher = new CommandDispatcher());
@@ -73,8 +73,7 @@ public class ClientThread extends Thread {
 		synchronized(responseQueue) {
 			responseQueue.clear();
 		}
-		m_bRunThread = false;
-		
+				
 		try { 
 			bW.write(ProtocolUtils.HC_TERMINATE + "\n");
 			bW.flush();
@@ -83,6 +82,8 @@ public class ClientThread extends Thread {
 		{
 			System.out.println("Error writing terminate command");
 		}
+		
+		m_bRunThread = false;
 	}
 
 	public void run() {
@@ -164,10 +165,6 @@ public class ClientThread extends Thread {
 				responseDispatcherThread.notifyAll();
 			}
 			
-			
-			/**bR.close();
-			bW.close();
-			clientSocket.close();*/
 			new CloseStreams(2);
 		} catch (Exception ioe) {
 			ioe.printStackTrace();
